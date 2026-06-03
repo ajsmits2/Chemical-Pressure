@@ -3,7 +3,7 @@ import numpy as np
 
 plotter = pv.Plotter()
 #File Names must be input here
-Filenameroot=''
+Filenameroot='Ti_TiSe2'
 Filenamexyz=f'{Filenameroot}_static_o_DS2_DEN.xyz'
 Filenamecoeff=f'{Filenameroot}_static-coeff'
 Filenamecell=f'{Filenameroot}_static-cell'
@@ -12,9 +12,9 @@ Filenamegeo=f'{Filenameroot}_static-geo'
 #=======================================================================
 #=================Preferred Methods Of Scaling==========================
 #=======================================================================
-ScaleLobe=120 #Scales the size of the chemical pressure lobes. Default is 100
-Scaleatom=0.6  #Can adjust for the size of atoms. Default is 1, 
-#0.6 for Scaleatom works well with 120 Scalelobe
+ScaleLobe=1 #Scales the size of the chemical pressure lobes. Default is 100
+Scaleatom=1  #Can adjust for the size of atoms. Default is 1, 
+#0.6 for Scaleatom works well with 120 Scalelobe ||||||    if using the slider bars leave each of these at 1
 
 #Notes
 # This code works with 2 element compounds and likely works for 4 element compounds
@@ -209,7 +209,15 @@ for i, coords in enumerate(xyz):
     else:
         plotter.add_mesh(Sphere, color='Orange')
     
+def Scalingatom(value):
+    Scaleatom = Scaleatom * value
 
+plotter.add_slider_widget(Scalingatom, [0, 2], title="Scaleatom")
+
+def ScalingLobe(value):
+    ScaleLobe = ScaleLobe *value
+
+plotter.add_slider_widget(ScalingLobe, [1, 200], title="ScaleLobe")
 
 #Appling the chemical presure lobe
 def apply_CP(geovalues, cellvalues, Geo_Cps, xyz):
@@ -246,5 +254,12 @@ def apply_CP(geovalues, cellvalues, Geo_Cps, xyz):
                                 plotter.add_mesh(ellipsoid2, style='surface', color='white')  #White in website code,  Positive
 
 CreateCPs = apply_CP(geovalues, cellvalues, Geo_Cps, xyz)
+
+#Temp code to attempt to add sliders
+
+'''
+
+
+'''
 
 plotter.show()
