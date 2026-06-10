@@ -1,25 +1,12 @@
 import pyvista as pv
 import numpy as np
 
+
 plotter = pv.Plotter()
-#File Names must be input here
-Filenameroot='Ti_TiSe2'
-Filenamexyz=f'{Filenameroot}_static_o_DS2_DEN.xyz'
-Filenamecoeff=f'{Filenameroot}_static-coeff'
-Filenamecell=f'{Filenameroot}_static-cell'
-Filenamegeo=f'{Filenameroot}_static-geo'
-
-#=======================================================================
-#=================Preferred Methods Of Scaling==========================
-#=======================================================================
-ScaleLobe=1 #Scales the size of the chemical pressure lobes. Default is 100
-Scaleatom=1  #Can adjust for the size of atoms. Default is 1, 
-#0.6 for Scaleatom works well with 120 Scalelobe ||||||    if using the slider bars leave each of these at 1
-
-#Notes
-# This code works with 2 element compounds and likely works for 4 element compounds
-# This code does not work for compounds with more than 4 elements 
-#For help with this code contact the Fredrickson Group at UW Madison
+Filenamexyz='Ti_TiSe2_static_o_DS2_DEN.xyz'
+Filenamecoeff='Ti_TiSe2_static-coeff'
+filenamecell='Ti_TiSe2_static-cell'
+filenamegeo='Ti_TiSe2_static-geo'
 
 #Reading xyz from the xyz file.
 def ReadTxt(Filenamexyz):
@@ -45,18 +32,15 @@ xyz,nameofatoms=ReadTxt(Filenamexyz)
 atom1=nameofatoms[0] 
 atom2=0
 
-#This finds and labels each atom in the system 
-atoms={}
-count=0
-for thing in nameofatoms:
-    if thing not in atoms.keys():
-        atoms[thing] = count
-        count+=1
+#Only works for 2atom coumpounds, need to fix This finds the second atom
+for i, thing in enumerate(nameofatoms):
+    if thing in nameofatoms != atom1:
+        atom2=thing
 
 #This converts the strings in the nameofatoms list to numbers in order to be read below.
-#Converts atom1 to 0, atom2 to 1, atom3 to 2, and atom4 to 3
+Conversion = {str(atom1):0, str(atom2):1}
 numberofatoms=[]
-numberofatoms = [atoms[s] for s in nameofatoms]
+numberofatoms = [Conversion[s] for s in nameofatoms]
 
 #Getting coeff out of the coeff file
 def ReadTxt2(Filenamecoeff):
@@ -81,18 +65,19 @@ for i in range(len(coeffvalues) // 49):
         CPcoeff_temporary[i].append(coeffvalues[49 * i + j])
 
 coeffvalues = CPcoeff_temporary
+print(type(coeffvalues[0]))
 
 #Getting cell out of the cell file
-def ReadTxt3(Filenamecell):
+def ReadTxt3(filenamecell):
     cellvalues = []
-    with open(Filenamecell, 'r') as f:
+    with open(filenamecell, 'r') as f:
         for line in f:
             parts = line.strip().split()
             if len(parts) != 3:
                 raise ValueError("Each line must contain exactly 3 numbers")
             cellvalues.append([float(x) for x in parts])
     return np.array(cellvalues)
-cellvalues= ReadTxt3(Filenamecell)
+cellvalues= ReadTxt3(filenamecell)
 
 #getting the geo out of the file
 def ReadTxt4(filename):
@@ -111,16 +96,43 @@ def ReadTxt4(filename):
             geovalues.append(numbers)
 
         return geoelements, np.array(geovalues, dtype=float)
-geoelements, geovalues=ReadTxt4(Filenamegeo)
+geoelements, geovalues=ReadTxt4(filenamegeo)
 
-#This generates the chemical pressure values
+#Variables: coeffvalues,cellvalues,geovalues,geoelements numberofatoms,xyz,coords
+
+#Notes/questions of the java code to create the chem pressures
+
+#---phi = Math.acos(x/np.sin(theta))
+#---theta=math.acos(z)
+#X Y and Z are directly pulled from the data
+
+
+#Need to split my varible xyz which contains all of x and all of z into distict lists
+#for this part
+#Ask patrick if there is a easy way to split np arrays by collumn. 
+
+
+
+#Scale is in the java script code to change the size keeping 1 now
+
+
+import numpy as np
+
 def Chemicalpressure(coeffvalues):
     Geo_Cps =[]
     for val in coeffvalues:
-        scale=1    #Use the scales at the top of the code this scales unpredictably
+        scale=1
 
-        positive_surf = pv.ParametricEllipsoid(xradius = 1, yradius = 1, zradius = 1,)
-        negative_surf = pv.ParametricEllipsoid(xradius = 1, yradius = 1, zradius = 1,)
+        positive_surf  = pv.ParametricEllipsoid(
+        xradius = 1,
+        yradius = 1,
+        zradius = 1,
+        )
+        negative_surf = pv.ParametricEllipsoid(
+        xradius = 1,
+        yradius = 1,
+        zradius = 1,
+        )
         for i in range(len(positive_surf.points)):
             r=0
             x = positive_surf.points[i][0]
@@ -139,9 +151,7 @@ def Chemicalpressure(coeffvalues):
 
             if y < 0:
                 phi = -phi
-            #This is a Legendre Polynomial expansion. It goes to L=4 this can be expanded
-            #for additional quality. 
-
+            
             #L = 0
             r += scale * 0.5 * (1 / np.pi)**0.5 * val[0]
 
@@ -180,49 +190,54 @@ def Chemicalpressure(coeffvalues):
             r *= 4 * np.pi
 
             if r < 0:
-                positive_surf.points[i] = np.zeros(3).copy()
+                positive_surf.points[i] = np.zeros(3)
                 negative_surf.points[i]= np.array([ r * np.sin(theta) * np.cos(phi), 
                                                     r * np.sin(theta) * np.sin(phi),
-                                                    r * np.cos(theta)]).copy()
+                                                    r * np.cos(theta)])
             else:
-                negative_surf.points[i] = np.zeros(3).copy()
+                negative_surf.points[i] = np.zeros(3)
                 positive_surf.points[i]= np.array([ r * np.sin(theta) * np.cos(phi), 
                                                     r * np.sin(theta) * np.sin(phi),
-                                                    r * np.cos(theta)]).copy()
-        Geo_Cps.append([positive_surf,negative_surf])
+                                                    r * np.cos(theta)])
+            Geo_Cps.append([positive_surf,negative_surf])
 
     return Geo_Cps
 
 Geo_Cps = Chemicalpressure(coeffvalues)
+#print(Geo_Cps)
+b = []
+for i in Geo_Cps:
+    #print(i[0].bounds)
+    if i[0].bounds[1]+i[0].bounds[3]+i[0].bounds[5]  >0 or i[1].bounds[1]+i[1].bounds[3]+i[1].bounds[5] >0 :
+        b.append(i)
+#a = np.where(Geo_Cps[:][0].>0, True, False)
+
+#print(len(b))
+#print(b)
+
+    #p=pv.Plotter()
+    #p.add_mesh(psurf,style='surface', color='blue')
+    #p.add_mesh(nsurf,style='surface', color='red')
+    #p.show()
 
 #Graphing the spheres just the atom location
+'''
 for i, coords in enumerate(xyz):
     Sphere = pv.Sphere()
-    Sphere.points *=Scaleatom
     Sphere=Sphere.translate(coords, inplace=True)
     if numberofatoms[i] == 0:
         plotter.add_mesh(Sphere, color='blue')
-    elif numberofatoms[i] == 1:
-        plotter.add_mesh(Sphere, color='red')
-    elif numberofatoms[i] == 2:
-        plotter.add_mesh(Sphere, color='green')
     else:
-        plotter.add_mesh(Sphere, color='Orange')
-    
-def Scalingatom(value):
-    Scaleatom = Scaleatom * value
-
-plotter.add_slider_widget(Scalingatom, [0, 2], title="Scaleatom")
-
-def ScalingLobe(value):
-    ScaleLobe = ScaleLobe *value
-
-plotter.add_slider_widget(ScalingLobe, [1, 200], title="ScaleLobe")
+        plotter.add_mesh(Sphere, color='red')
+'''
 
 #Appling the chemical presure lobe
-def apply_CP(geovalues, cellvalues, Geo_Cps, xyz):
+print(len(Geo_Cps))
+def apply_CP(geovalues, cellvalues, Geo_Cps, xyz, scale=10,):
     natoms_geo = len(geovalues)
     natoms_coords = len(xyz)
+    lobes = []
+    counter = 0
     for j1 in range(-4, 5):
         for j2 in range(-4, 5):
             for j3 in range(-4, 5):
@@ -236,30 +251,162 @@ def apply_CP(geovalues, cellvalues, Geo_Cps, xyz):
                         z2 = xyz[k2][2]
                         dist = ((x1-x2)**2 + (y1-y2)**2 + (z1-z2)**2)**0.5
                         if(dist < 0.1): 
+                        #if True:
+                            Ellipsoid1=Geo_Cps[k1][1]
+                            Ellipsoid2=Geo_Cps[k1][0]
+                            #print(Geo_Cps[k1][1].bounds[1])
+                            Ellipsoid1 = pv.ParametricEllipsoid(xradius=Geo_Cps[k1][1].bounds[1], yradius=Geo_Cps[k1][1].bounds[3], zradius=Geo_Cps[k1][1].bounds[5])  #negative
+                            Ellipsoid2 = pv.ParametricEllipsoid(xradius=Geo_Cps[k1][0].bounds[1], yradius=Geo_Cps[k1][0].bounds[3], zradius=Geo_Cps[k1][0].bounds[5])  #positive
+                            #NEED TO FIGURE OUT THE CORRECT WAY TO SCALE THE XYZ. This is the problem ^^^^^^^^
                             for i in range(0,1):
-                                ScaleXYZ=1  #This can be ignored do not change from 1, 
-                                #this changes how much the chemical pressures scale if changed from 1 
-                                #only use for bug fixes
-                                xyztemp=[x2/ScaleXYZ,y2/ScaleXYZ,z2/ScaleXYZ]
-                                ellipsoid1 = Geo_Cps[k1][1].copy() # negative lobe
-                                ellipsoid2 = Geo_Cps[k1][0].copy() # positive lobe
-                            
-                                ellipsoid1.points *= ScaleLobe
-                                ellipsoid2.points *= ScaleLobe
-                            
-                                ellipsoid1.translate(xyztemp, inplace=True)
-                                ellipsoid2.translate(xyztemp, inplace=True)
-                            
-                                plotter.add_mesh(ellipsoid1, style='surface', color='black')  #Black in website code,  Negative
-                                plotter.add_mesh(ellipsoid2, style='surface', color='white')  #White in website code,  Positive
+                                
+                                #print(Geo_Cps[k1][1].bounds)
+                                #print(Geo_Cps[k1][0].bounds)
+                                xyztemp=[x2,y2,z2]
+                                #print(xyztemp)
+                                Ellipsoid1=Ellipsoid1.translate(xyztemp, inplace=True)
+                                Ellipsoid2=Ellipsoid2.translate(xyztemp, inplace=True)
+                                print(Ellipsoid1)
+                                Ellipsoid1.points*=scale
+                                Ellipsoid2.points*=scale
 
-CreateCPs = apply_CP(geovalues, cellvalues, Geo_Cps, xyz)
+                                plotter.add_mesh(Ellipsoid1.points, style='surface', color='purple')
+                                plotter.add_mesh(Ellipsoid2.points, style='surface', color='green')
+                                #plotter.show()
+                                #raise(SystemExit)
+                                counter=counter+1
+                                
 
-#Temp code to attempt to add sliders
+CreateCPs = apply_CP(geovalues, cellvalues, Geo_Cps, xyz, scale=10)
 
-'''
-
-
-'''
-
+plotter.add_mesh(pv.Sphere())
 plotter.show()
+#Currently previous code need to rewrite into python.
+'''
+function apply_CP(geo_CPs, geo, cell, template) 
+  var natoms_geo = geo.length
+  var natoms_template = template.length
+  var lobes = []
+  var lobes_temp = []
+  var counter = 0
+  var j1,j2,j3,k1,k2,x1,y1,z1,x2,y2,z2,dist
+  for( j1=-4; j1 < 5; j1++) {
+    for( j2=-4; j2 < 5; j2++) {
+      for( j3=-4; j3 < 5; j3++) {
+        for(k1 = 0; k1 < natoms_geo; k1++) {
+          for(k2 = 0; k2 < natoms_template; k2++) {
+            x1=geo[k1][1]+cell[0][0]*j1+cell[1][0]*j2+cell[2][0]*j3
+            y1=geo[k1][2]+cell[0][1]*j1+cell[1][1]*j2+cell[2][1]*j3
+            z1=geo[k1][3]+cell[0][2]*j1+cell[1][2]*j2+cell[2][2]*j3
+            x2=template[k2][1]
+            y2=template[k2][2]
+            z2=template[k2][3]
+            dist = ((x1-x2)**2 + (y1-y2)**2 + (z1-z2)**2)**0.5
+            if(dist < 0.1) {
+              lobes_temp[0] = new THREE.Mesh(geo_CPs[k1][0], plus)
+              lobes_temp[1] = new THREE.Mesh(geo_CPs[k1][1], minus)
+              for (let i=0; i<2; i++) {
+                lobes_temp[i].translateX(x2)
+                lobes_temp[i].translateY(y2)
+                lobes_temp[i].translateZ(z2)
+                lobes_temp[i].geometry.verticesNeedUpdate = true
+                lobes_temp[i].geometry.facesNeedUpdate = true
+                lobes_temp[i].geometry.elementsNeedUpdate = true
+                lobes_temp[i].geometry.computeFaceNormals()
+                lobes_temp[i].geometry.computeVertexNormals()
+                scene.add(lobes_temp[i])
+                lobes[counter] = lobes_temp[i]
+                counter
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  return(lobes)
+'''
+'''
+this code below is also from the html script and it creates the bonds between the atoms
+function drawbonds_cylinder(atoms,atom1,color1,atom2,color2,d_min,d_max,radius) {
+  var dist = 0.0;
+  var d_x,d_y,d_z,theta,phi;
+  var new_cylinder = [];
+  var counter = 0;
+  var nbonds=0;
+  for(let j = 0; j < atoms.length ; j++) {
+    if(atom1 === atom2) {
+      for(let k = 0; k < atoms.length ; k++) {
+        dist = ((atoms[j][1]-atoms[k][1])**2.0 + (atoms[j][2]-atoms[k][2])**2.0 + (atoms[j][3]-atoms[k][3])**2.0)**0.5;
+        if((dist >= d_min) && (dist <= d_max) && (atoms[j][0] === atom1) && (atoms[k][0] === atom2)) {
+          nbonds++;
+	        d_x = (atoms[k][1]-atoms[j][1]);
+	        d_y = (atoms[k][2]-atoms[j][2]);
+	        d_z = (atoms[k][3]-atoms[j][3]);
+	        theta=Math.acos(d_z/dist);
+	        phi =0.0;
+	        if((theta > 0) && (theta < Math.PI)) {
+            var acin = Math.round( d_x / Math.sin(theta) / dist * 1000000 + Number.EPSILON ) / 1000000;
+            phi = Math.acos(acin);
+	        }
+	        if(d_y < 0.0) {
+	          phi=-phi;
+	        }
+
+	        var geometry2 = new THREE.CylinderBufferGeometry(radius,radius,dist,20); //IMAGE QUALITY
+	        geometry2.rotateX(Math.PI/2);
+	        geometry2.rotateY(theta);
+	        geometry2.rotateZ(phi);
+	        geometry2.translate(atoms[j][1]+d_x*0.5,atoms[j][2]+d_y*0.5,atoms[j][3]+d_z*0.5);
+	        geometry2.computeFaceNormals();
+	        geometry2.normalsNeedUpate = true;
+	        new_cylinder[counter] = new THREE.Mesh( geometry2,color1);
+	        scene.add(new_cylinder[counter]);
+	        counter++;
+        }
+      }
+    }
+    else {
+      for(let k = 0; k < atoms.length ; k++) {
+        dist = ((atoms[j][1]-atoms[k][1])**2.0 + (atoms[j][2]-atoms[k][2])**2.0 + (atoms[j][3]-atoms[k][3])**2.0)**0.5;
+        if((dist >= d_min) && (dist <= d_max) && (atoms[j][0] === atom1) && (atoms[k][0] === atom2)) {
+          d_x = (atoms[k][1]-atoms[j][1]);
+          d_y = (atoms[k][2]-atoms[j][2]);
+          d_z = (atoms[k][3]-atoms[j][3]);
+          theta=Math.acos(d_z/dist);
+          phi =0.0;
+          if((theta > 0) && (theta < Math.PI)) {
+            var acin = Math.round( d_x / Math.sin(theta) / dist * 1000000 + Number.EPSILON ) / 1000000;
+            phi = Math.acos(acin);
+          }
+          if(d_y < 0.0) {
+            phi=-phi;
+          }
+          var geometry2 = new THREE.CylinderBufferGeometry(radius,radius,dist/2.0,20); //IMAGE QUALITY
+          geometry2.rotateX(Math.PI/2);
+          geometry2.rotateY(theta);
+          geometry2.rotateZ(phi);
+          geometry2.translate(atoms[j][1]+d_x*0.25,atoms[j][2]+d_y*0.25,atoms[j][3]+d_z*0.25);
+          geometry2.computeFaceNormals();
+          geometry2.normalsNeedUpate = true;
+          new_cylinder[counter] = new THREE.Mesh( geometry2,color1);
+          scene.add(new_cylinder[counter]);
+          counter++;
+       	  geometry2 = new THREE.CylinderBufferGeometry(radius,radius,dist/2.0,20); //IMAGE QUALITY
+          geometry2.rotateX(Math.PI/2);
+          geometry2.rotateY(theta);
+          geometry2.rotateZ(phi);
+          geometry2.translate(atoms[j][1]+d_x*0.75,atoms[j][2]+d_y*0.75,atoms[j][3]+d_z*0.75);
+          geometry2.computeFaceNormals();
+          geometry2.normalsNeedUpate = true;
+          new_cylinder[counter] = new THREE.Mesh( geometry2,color2);
+          scene.add(new_cylinder[counter]);
+          counter++;
+        }
+      }
+    }
+  }
+  return(new_cylinder);
+}
+'''
+
