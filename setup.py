@@ -2,7 +2,7 @@ from distutils.core import setup
 setup(
   name = 'Chemical Pressure Plotting',         # How you named your package folder (MyLib)
   packages = ['Chemical Pressure Plotting'],   # Chose the same as "name"
-  version = '0.2',      # Start with a small number and increase it with every change you make
+  version = '0.3',      # Start with a small number and increase it with every change you make
   license='MIT',        # Chose a license from here: https://help.github.com/articles/licensing-a-repository
   description = 'Uses python to plot chemical pressures of atomic compounds',   # Give a short description about your library
   author = 'Alexander Smits',                   # Type in your name
