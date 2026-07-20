@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "Chemical-Pressure-Plotter"
-version = "1.1"
+version = "2"
 authors = [
   { name="Alex Smits", email="ajsmits2@wisc.edu" },
 ]
